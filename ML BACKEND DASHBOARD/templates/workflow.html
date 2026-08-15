@@ -1,0 +1,1095 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .workflow-container {
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .diagram-scroll-container {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 10px;
+    }
+
+    /* Vertical Diagram Area */
+    .flow-diagram-wrapper {
+        position: relative;
+        width: 1200px;
+        height: 1350px;
+        margin: 0 auto;
+        background: rgba(6, 8, 24, 0.6);
+        border: 1px solid var(--glass-border);
+        border-radius: 18px;
+        overflow: hidden;
+        background-image: 
+            linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+        background-size: 20px 20px;
+    }
+
+    .color-default { --nc: #00f2ff; --nc-rgb: 0, 242, 255; }
+    
+    /* Hardware & Sensors (Cyan) */
+    .color-hw      { --nc: #00f2ff; --nc-rgb: 0, 242, 255; }
+    .color-temp    { --nc: #00f2ff; --nc-rgb: 0, 242, 255; }
+    .color-hum     { --nc: #00f2ff; --nc-rgb: 0, 242, 255; }
+    .color-press   { --nc: #00f2ff; --nc-rgb: 0, 242, 255; }
+    .color-uv      { --nc: #00f2ff; --nc-rgb: 0, 242, 255; }
+    .color-rain    { --nc: #00f2ff; --nc-rgb: 0, 242, 255; }
+    
+    /* Data Ingestion: teal */
+    .color-ing     { --nc: #14b8a6; --nc-rgb: 20, 184, 166; }
+    /* Validation Layer: amber/yellow */
+    .color-val-layer { --nc: #f59e0b; --nc-rgb: 245, 158, 11; }
+    /* Smoothing Layer: soft blue */
+    .color-smooth  { --nc: #38bdf8; --nc-rgb: 56, 189, 248; }
+    /* Feature Engineering: soft blue */
+    .color-feat    { --nc: #60a5fa; --nc-rgb: 96, 165, 250; }
+    
+    /* ML Engine & Models: violet */
+    .color-ml      { --nc: #8b5cf6; --nc-rgb: 139, 92, 246; }
+    .color-dt      { --nc: #8b5cf6; --nc-rgb: 139, 92, 246; }
+    .color-gb      { --nc: #8b5cf6; --nc-rgb: 139, 92, 246; }
+    .color-knn     { --nc: #8b5cf6; --nc-rgb: 139, 92, 246; }
+    .color-rf      { --nc: #8b5cf6; --nc-rgb: 139, 92, 246; }
+    
+    /* Prediction & Scoring: brighter violet */
+    .color-pred    { --nc: #a78bfa; --nc-rgb: 167, 139, 250; }
+    /* Live Validation: green */
+    .color-val     { --nc: #10b981; --nc-rgb: 16, 185, 129; }
+    /* Flask Backend: gray-cyan */
+    .color-flask   { --nc: #94a3b8; --nc-rgb: 148, 163, 184; }
+    /* Dashboard: bright cyan/white */
+    .color-dash    { --nc: #ffffff; --nc-rgb: 255, 255, 255; }
+
+    .flow-svg {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 1;
+    }
+    .flow-path {
+        fill: none;
+        stroke: rgba(255,255,255,0.1);
+        stroke-width: 2;
+        transition: stroke 0.4s ease, filter 0.4s ease;
+        --nc: var(--primary);
+    }
+    .flow-path.active {
+        stroke: var(--nc);
+        filter: drop-shadow(0 0 5px var(--nc));
+    }
+    
+    .pulse-circle {
+        fill: var(--nc);
+        opacity: 0;
+        transition: fill 0.4s ease;
+    }
+    .pulse-circle.active {
+        filter: drop-shadow(0 0 8px var(--nc));
+    }
+    
+    .flow-particle {
+        fill: #a78bfa;
+        transition: fill 0.4s ease;
+        --nc: var(--primary);
+    }
+    .flow-particle.active {
+        fill: var(--nc);
+        filter: drop-shadow(0 0 5px var(--nc));
+    }
+
+    .flow-node {
+        --nc: var(--primary);
+        --nc-rgb: 0, 242, 255;
+        position: absolute;
+        transform: translate(-50%, -50%);
+        background: rgba(15, 23, 42, 0.85);
+        border: 2px solid rgba(var(--nc-rgb), 0.3);
+        border-radius: 14px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 12px;
+        z-index: 2;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        opacity: 0.6;
+        cursor: pointer;
+        font-size: 0.9rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        color: var(--text-main);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .flow-node.active {
+        opacity: 1;
+        background: rgba(30, 27, 75, 0.9);
+        border-color: var(--nc);
+        box-shadow: 0 0 20px rgba(var(--nc-rgb), 0.2), inset 0 0 10px rgba(var(--nc-rgb), 0.1);
+        transform: translate(-50%, -50%) scale(1.05);
+    }
+    .flow-node i {
+        font-size: 1.6rem;
+        margin-bottom: 6px;
+        color: rgba(var(--nc-rgb), 0.7);
+        transition: color 0.4s ease;
+    }
+    .flow-node.active i {
+        color: var(--nc);
+        text-shadow: 0 0 8px rgba(var(--nc-rgb), 0.5);
+        animation: breathingIcon 2s ease-in-out infinite;
+    }
+    .flow-node:not(.active) i {
+        animation: breathingIdle 3s ease-in-out infinite;
+    }
+
+    @keyframes breathingIcon {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.7; transform: scale(0.95); }
+    }
+    @keyframes breathingIdle {
+        0%, 100% { opacity: 0.7; filter: drop-shadow(0 0 2px rgba(var(--nc-rgb), 0.2)); }
+        50% { opacity: 1; filter: drop-shadow(0 0 5px rgba(var(--nc-rgb), 0.4)); }
+    }
+
+    /* Tooltip */
+    .node-tooltip {
+        position: absolute;
+        bottom: calc(100% + 10px);
+        left: 50%;
+        transform: translateX(-50%) scale(0.9);
+        background: rgba(15, 23, 42, 0.95);
+        border: 1px solid var(--nc);
+        border-radius: 8px;
+        padding: 12px;
+        width: 250px;
+        color: var(--text-main);
+        font-family: monospace;
+        font-size: 0.7rem;
+        line-height: 1.4;
+        text-align: left;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5), 0 0 10px rgba(var(--nc-rgb), 0.2);
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 150ms ease, transform 150ms ease;
+        z-index: 100;
+        white-space: pre-wrap;
+        text-transform: none;
+        letter-spacing: normal;
+        font-weight: normal;
+    }
+    .node-tooltip::after {
+        content: '';
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border-width: 6px;
+        border-style: solid;
+        border-color: var(--nc) transparent transparent transparent;
+    }
+    .flow-node:hover .node-tooltip,
+    .flow-node.tooltip-active .node-tooltip {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+
+    /* Details Panel */
+    .details-panel {
+        background: var(--card-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 16px;
+        padding: 24px;
+        min-height: 200px;
+        position: relative;
+    }
+
+    .step-title {
+        color: var(--primary);
+        font-size: 1.1rem;
+        font-weight: 800;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .step-desc {
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        line-height: 1.6;
+        margin-bottom: 20px;
+        max-width: 800px;
+    }
+
+    .live-data-box {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        border-radius: 12px;
+        padding: 16px;
+        font-family: monospace;
+        color: #a78bfa;
+        font-size: 0.85rem;
+    }
+
+    .live-data-box .label {
+        color: #64748b;
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .data-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 12px;
+    }
+    
+    .data-stat {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.05);
+        padding: 10px;
+        border-radius: 8px;
+    }
+
+    /* Controls */
+    .controls-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 16px;
+        flex-wrap: wrap;
+        gap: 16px;
+    }
+
+    .step-indicator {
+        font-size: 0.75rem;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        color: var(--text-muted);
+    }
+    
+    .step-dots {
+        display: flex;
+        gap: 6px;
+        margin-top: 6px;
+    }
+    
+    .step-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.2);
+        transition: all 0.3s ease;
+    }
+    
+    .step-dot.active {
+        background: var(--primary);
+        box-shadow: 0 0 8px var(--primary);
+    }
+
+    .auto-play-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: var(--text-muted);
+        cursor: pointer;
+    }
+</style>
+
+<div class="workflow-container">
+    <div class="d-flex align-items-center justify-content-between mb-2">
+        <div>
+            <h4 class="fw-bold mb-1 text-white">System Workflow</h4>
+            <div class="text-secondary small fw-bold" style="letter-spacing: 0.05em;">END-TO-END PIPELINE ARCHITECTURE</div>
+        </div>
+    </div>
+
+    <!-- Interactive Diagram -->
+    <div class="diagram-scroll-container">
+        <div class="flow-diagram-wrapper">
+            <svg class="flow-svg" viewBox="0 0 1200 1350" preserveAspectRatio="none" id="flow-svg">
+                <!-- Paths hw -> sensors (Row 1 to Row 2: 48 to 144) -->
+                <path id="p-hw-s1" class="flow-path color-temp" d="M600,60 C600,115 120,115 120,170" />
+                <path id="p-hw-s2" class="flow-path color-hum" d="M600,60 C600,115 360,115 360,170" />
+                <path id="p-hw-s3" class="flow-path color-press" d="M600,60 L600,170" />
+                <path id="p-hw-s4" class="flow-path color-uv" d="M600,60 C600,115 840,115 840,170" />
+                <path id="p-hw-s5" class="flow-path color-rain" d="M600,60 C600,115 1080,115 1080,170" />
+
+                <!-- Paths sensors -> ing (Row 2 to Row 3: 144 to 240) -->
+                <path id="p-s1-ing" class="flow-path color-temp" d="M120,170 C120,225 600,225 600,280" />
+                <path id="p-s2-ing" class="flow-path color-hum" d="M360,170 C360,225 600,225 600,280" />
+                <path id="p-s3-ing" class="flow-path color-press" d="M600,170 L600,280" />
+                <path id="p-s4-ing" class="flow-path color-uv" d="M840,170 C840,225 600,225 600,280" />
+                <path id="p-s5-ing" class="flow-path color-rain" d="M1080,170 C1080,225 600,225 600,280" />
+
+                <!-- ing -> val-layer (Row 3 to Row 4: 240 to 336) -->
+                <path id="p-ing-val-layer" class="flow-path color-ing" d="M600,280 L600,390" />
+                
+                <!-- val-layer -> smooth (Row 4 to Row 5: 336 to 432) -->
+                <path id="p-val-layer-smooth" class="flow-path color-val-layer" d="M600,390 L600,500" />
+
+                <!-- smooth -> feat (Row 5 to Row 6: 432 to 528) -->
+                <path id="p-smooth-feat" class="flow-path color-smooth" d="M600,500 L600,610" />
+                
+                <!-- feat -> ml (Row 6 to Row 7: 528 to 624) -->
+                <path id="p-feat-ml" class="flow-path color-feat" d="M600,610 L600,720" />
+
+                <!-- ml -> models (Row 7 to Row 8: 624 to 720) -->
+                <path id="p-ml-m1" class="flow-path color-ml" d="M600,720 C600,775 150,775 150,830" />
+                <path id="p-ml-m2" class="flow-path color-ml" d="M600,720 C600,775 450,775 450,830" />
+                <path id="p-ml-m3" class="flow-path color-ml" d="M600,720 C600,775 750,775 750,830" />
+                <path id="p-ml-m4" class="flow-path color-ml" d="M600,720 C600,775 1050,775 1050,830" />
+
+                <!-- models -> pred (Row 8 to Row 9: 720 to 816) -->
+                <path id="p-m1-pred" class="flow-path color-dt" d="M150,830 C150,885 600,885 600,940" />
+                <path id="p-m2-pred" class="flow-path color-gb" d="M450,830 C450,885 600,885 600,940" />
+                <path id="p-m3-pred" class="flow-path color-knn" d="M750,830 C750,885 600,885 600,940" />
+                <path id="p-m4-pred" class="flow-path color-rf" d="M1050,830 C1050,885 600,885 600,940" />
+
+                <!-- pred -> val (Row 9 to Row 10: 816 to 912) -->
+                <path id="p-pred-val" class="flow-path color-pred" d="M600,940 L600,1050" />
+                
+                <!-- val -> flask (Row 10 to Row 11: 912 to 1008) -->
+                <path id="p-val-flask" class="flow-path color-val" d="M600,1050 L600,1160" />
+
+                <!-- flask -> dash (Row 11 to Row 12: 1008 to 1104) -->
+                <path id="p-flask-dash" class="flow-path color-flask" d="M600,1160 L600,1270" />
+                
+                <!-- Particles will be generated by JS here -->
+            </svg>
+            
+            <!-- Nodes Overlays -->
+            <div class="flow-node color-default" id="n-hw" style="left:50%; top:4.444%; width:280px; height:65px;" onclick="handleNodeClick(this, 0, event)">
+                <i class="bi bi-cpu"></i> Hardware Sensors
+                <div class="node-tooltip">Arduino UNO collects 5 readings and transmits over Serial at 9600 baud.<br><br>Format: temp,humid,precip,uv,press</div>
+            </div>
+            
+            <div class="flow-node color-temp" id="n-s1" style="left:10%; top:12.592%; width:200px; height:75px;" onclick="handleNodeClick(this, 0, event)">
+                <i class="bi bi-thermometer-half"></i> Temp
+                <div class="node-tooltip">Sensor: DHT11<br>Pin: DATA→D4 · VCC 5V<br><br>Output: e.g. 31.5°C</div>
+            </div>
+            <div class="flow-node color-hum" id="n-s2" style="left:30%; top:12.592%; width:200px; height:75px;" onclick="handleNodeClick(this, 0, event)">
+                <i class="bi bi-droplet-half"></i> Humid
+                <div class="node-tooltip">Sensor: DHT11<br>Pin: DATA→D4 · VCC 5V<br><br>Output: e.g. 66.9%</div>
+            </div>
+            <div class="flow-node color-press" id="n-s3" style="left:50%; top:12.592%; width:200px; height:75px;" onclick="handleNodeClick(this, 0, event)">
+                <i class="bi bi-speedometer2"></i> Press
+                <div class="node-tooltip">Sensor: BMP180 (I2C)<br>SDA→A4, SCL→A5 · VCC 3.3V/5V<br><br>Expected range: 995-1013 hPa</div>
+            </div>
+            <div class="flow-node color-uv" id="n-s4" style="left:70%; top:12.592%; width:200px; height:75px;" onclick="handleNodeClick(this, 0, event)">
+                <i class="bi bi-sun"></i> UV Index
+                <div class="node-tooltip">Sensor: Analog UV<br>Pin OUT→A1 · VCC 5V<br><br>0 = night, 3-5 = moderate, 8+ = strong</div>
+            </div>
+            <div class="flow-node color-rain" id="n-s5" style="left:90%; top:12.592%; width:200px; height:75px;" onclick="handleNodeClick(this, 0, event)">
+                <i class="bi bi-cloud-rain"></i> Rainfall
+                <div class="node-tooltip">Sensor: HW-038/HW-103<br>Pin AO→A0 · VCC 5V<br><br>Output: 0% = dry, 100% = fully wet</div>
+            </div>
+            
+            <div class="flow-node color-ing" id="n-ing" style="left:50%; top:20.74%; width:280px; height:65px;" onclick="handleNodeClick(this, 1, event)">
+                <i class="bi bi-usb-symbol"></i> Data Ingestion
+                <div class="node-tooltip">Python layer reads and parses the 9600 baud serial string into individual variables.</div>
+            </div>
+
+            <div class="flow-node color-val-layer" id="n-val-layer" style="left:50%; top:28.888%; width:280px; height:65px;" onclick="handleNodeClick(this, 2, event)">
+                <i class="bi bi-shield-check"></i> Validation Layer
+                <div class="node-tooltip">Rejects physically impossible values.<br>Temp: -40 to 60°C<br>Humid/Rain: 0-100%<br>UV: 0-16<br>Press: 850-1100 hPa<br>(e.g. 1826 hPa = faulty, rejected)</div>
+            </div>
+
+            <div class="flow-node color-smooth" id="n-smooth" style="left:50%; top:37.037%; width:280px; height:65px;" onclick="handleNodeClick(this, 3, event)">
+                <i class="bi bi-graph-up-arrow"></i> Smoothing Layer
+                <div class="node-tooltip">Applies a moving average to remove sensor noise.<br><br>e.g. [30, 31, 29, 32, 30] → smoothed to [30.4, 30.5, 30.3]</div>
+            </div>
+            
+            <div class="flow-node color-feat" id="n-feat" style="left:50%; top:45.185%; width:280px; height:65px;" onclick="handleNodeClick(this, 4, event)">
+                <i class="bi bi-funnel"></i> Feature Eng
+                <div class="node-tooltip">Constructs 8 features for ML: Temperature, Humidity, Precipitation, UV, Pressure, Hour, Day of Week, Month</div>
+            </div>
+            
+            <div class="flow-node color-ml" id="n-ml" style="left:50%; top:53.333%; width:280px; height:65px;" onclick="handleNodeClick(this, 5, event)">
+                <i class="bi bi-boxes"></i> ML Engine
+                <div class="node-tooltip">Ensemble of 4 algorithms.<br><br>The best-performing model on historical data is saved as weather_model.pkl</div>
+            </div>
+            
+            <div class="flow-node color-dt" id="n-m1" style="left:12.5%; top:61.481%; width:240px; height:75px;" onclick="handleNodeClick(this, 5, event)">
+                <i class="bi bi-diagram-2"></i> Decision Tree
+                <div class="node-tooltip">Splits data via feature thresholds to make predictions. Part of 4-model ensemble.</div>
+            </div>
+            <div class="flow-node color-gb" id="n-m2" style="left:37.5%; top:61.481%; width:240px; height:75px;" onclick="handleNodeClick(this, 5, event)">
+                <i class="bi bi-lightning"></i> Grad Boost
+                <div class="node-tooltip">Builds sequential trees to correct errors of prior trees for high accuracy.</div>
+            </div>
+            <div class="flow-node color-knn" id="n-m3" style="left:62.5%; top:61.481%; width:240px; height:75px;" onclick="handleNodeClick(this, 5, event)">
+                <i class="bi bi-bezier2"></i> KNN
+                <div class="node-tooltip">Classifies weather by comparing current readings to the nearest historical neighbors.</div>
+            </div>
+            <div class="flow-node color-rf" id="n-m4" style="left:87.5%; top:61.481%; width:240px; height:75px;" onclick="handleNodeClick(this, 5, event)">
+                <i class="bi bi-tree"></i> Random Forest
+                <div class="node-tooltip">Averages predictions across many randomized decision trees to prevent overfitting.</div>
+            </div>
+            
+            <div class="flow-node color-pred" id="n-pred" style="left:50%; top:69.629%; width:320px; height:65px;" onclick="handleNodeClick(this, 6, event)">
+                <i class="bi bi-bullseye"></i> Prediction & Scoring
+                <div class="node-tooltip">Outputs Sunny/Cloudy/Rainy with confidence % (e.g. Cloudy, 67.9%).<br><br>Also hosts separate 2-Hour Forecast Model (forecast_model.pkl).</div>
+            </div>
+            
+            <div class="flow-node color-val" id="n-val" style="left:50%; top:77.777%; width:280px; height:65px;" onclick="handleNodeClick(this, 7, event)">
+                <i class="bi bi-check2-circle"></i> Live Validation
+                <div class="node-tooltip">Cross-references local AI predictions against external live APIs for validation accuracy.</div>
+            </div>
+
+            <div class="flow-node color-flask" id="n-flask" style="left:50%; top:85.925%; width:280px; height:65px;" onclick="handleNodeClick(this, 8, event)">
+                <i class="bi bi-server"></i> Flask Backend
+                <div class="node-tooltip">Flask Backend (app.py)<br><br>Serves API endpoints, sensor data, current prediction, 2-Hour forecast, and dashboard communication.</div>
+            </div>
+            
+            <div class="flow-node color-dash" id="n-dash" style="left:50%; top:94.074%; width:280px; height:65px;" onclick="handleNodeClick(this, 9, event)">
+                <i class="bi bi-display"></i> Dashboard
+                <div class="node-tooltip">Displays temp, humidity, pressure, UV, rain, current weather, confidence, forecast, and historical charts.</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Active Step Details -->
+    <div class="details-panel">
+        <div id="step-content">
+            <!-- Content populated by JS -->
+        </div>
+        
+        <div class="controls-row">
+            <div class="d-flex flex-column align-items-start">
+                <div class="step-indicator" id="step-indicator-text">STEP 1 / 7</div>
+                <div class="step-dots" id="step-dots"></div>
+            </div>
+            
+            <div class="d-flex align-items-center gap-4">
+                <label class="auto-play-toggle form-check form-switch m-0">
+                    <input class="form-check-input" type="checkbox" id="autoplay-toggle" role="switch">
+                    <span>AUTO-PLAY</span>
+                </label>
+                
+                <div class="btn-group">
+                    <button class="btn btn-outline-info fw-bold" style="font-size: 0.8rem;" onclick="prevStep()"><i class="bi bi-chevron-left me-1"></i> BACK</button>
+                    <button class="btn btn-premium fw-bold" style="font-size: 0.8rem; border-radius: 0 14px 14px 0;" onclick="nextStep()">NEXT <i class="bi bi-chevron-right ms-1"></i></button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Configuration
+    const PIPELINE_STAGES = [
+        {
+            title: '1. Hardware Sensors',
+            icon: 'bi-cpu',
+            desc: 'Arduino UNO collects 5 readings and transmits over Serial at 9600 baud. The array includes DHT11 (Temp/Humidity) via Digital Pin, BMP180 (Pressure) via I2C bus, analog UV sensor, and HW-038/HW-103 rain sensor.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">LIVE SENSOR READINGS</span>
+                        <div class="data-grid">
+                            <div class="data-stat" style="border-left: 3px solid #f59e0b;"><div class="text-secondary" style="font-size:0.65rem">DHT11 TEMP</div><div class="text-white">${d.current.temperature}°C</div></div>
+                            <div class="data-stat" style="border-left: 3px solid #3b82f6;"><div class="text-secondary" style="font-size:0.65rem">DHT11 HUMIDITY</div><div class="text-white">${d.current.humidity}%</div></div>
+                            <div class="data-stat" style="border-left: 3px solid #a855f7;"><div class="text-secondary" style="font-size:0.65rem">BMP180 PRESSURE</div><div class="text-white">${d.current.pressure} hPa</div></div>
+                            <div class="data-stat" style="border-left: 3px solid #eab308;"><div class="text-secondary" style="font-size:0.65rem">ANALOG UV</div><div class="text-white">${d.current.uv_index} (Index)</div></div>
+                            <div class="data-stat" style="border-left: 3px solid #06b6d4;"><div class="text-secondary" style="font-size:0.65rem">HW-038 RAINFALL</div><div class="text-white">${d.current.precipitation}% (Wetness)</div></div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">HARDWARE METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> I2C BUS:</span> <span class="text-success fw-bold">ONLINE (BMP180)</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> DIGITAL PINS:</span> <span class="text-success fw-bold">D4 (DHT11)</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> ANALOG PINS:</span> <span class="text-success fw-bold">A0 (Rain), A1 (UV)</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> POLLING:</span> <span class="text-info fw-bold">Continuous</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            title: '2. Data Ingestion',
+            icon: 'bi-usb-symbol',
+            desc: 'Raw sensor signals are transmitted via serial interface to the backend. The Python layer reads and parses the 9600 baud serial string into individual variables.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">STREAM STATUS</span>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <div class="spinner-grow spinner-grow-sm text-success" role="status" style="width:12px; height:12px;"></div>
+                            <span class="text-white">Active Serial Connection</span>
+                        </div>
+                        <div class="text-secondary">Last string received: <span class="text-info fw-bold">"${d.current.temperature.toFixed(2)},${d.current.humidity.toFixed(2)},${d.current.precipitation.toFixed(2)},${d.current.uv_index.toFixed(2)},${d.current.pressure.toFixed(2)}"</span></div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">INGESTION METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> BAUD RATE:</span> <span class="text-info fw-bold">9600 bps</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> DELIMITER:</span> <span class="text-warning fw-bold">Comma ','</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> PYTHON SCRIPT:</span> <span class="text-success fw-bold">Running</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            title: '3. Validation Layer',
+            icon: 'bi-shield-check',
+            desc: 'Rejects physically impossible values before they reach the model: temperature -40 to 60°C, humidity 0-100%, rain 0-100%, UV 0-16, pressure 850-1100 hPa.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">LATEST VALIDATION CHECK</span>
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                            <i class="bi bi-shield-check text-success fs-5"></i>
+                            <span class="text-white">All parameters within bounds</span>
+                        </div>
+                        <div class="text-secondary" style="font-size: 0.75rem;">Example rejection: Pressure "1826 hPa" -> Faulty reading</div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">ACCEPTED RANGES</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> TEMP:</span> <span class="text-info fw-bold">-40 to 60°C</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> PRESS:</span> <span class="text-info fw-bold">850-1100 hPa</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> UV:</span> <span class="text-info fw-bold">0-16</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            title: '4. Smoothing Layer',
+            icon: 'bi-graph-up-arrow',
+            desc: 'Applies a moving average to remove sensor noise and prevent erratic ML predictions from single-tick anomalies.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">MOVING AVERAGE (n=5)</span>
+                        <div class="text-white p-2" style="background: rgba(0,242,255,0.05); border: 1px dashed rgba(0,242,255,0.2); border-radius: 6px;">
+                            <span class="text-secondary small">Raw:</span> [30, 31, 29, 32, 30]<br>
+                            <span class="text-info small">Smoothed:</span> [30.4, 30.5, 30.3]
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">FILTER METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> ALGORITHM:</span> <span class="text-info fw-bold">Simple Moving Avg</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> WINDOW SIZE:</span> <span class="text-warning fw-bold">5 ticks</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> STATE:</span> <span class="text-success fw-bold">Buffered</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            title: '5. Feature Engineering',
+            icon: 'bi-funnel',
+            desc: 'Extracts 8 total features: Temperature, Humidity, Precipitation, UV, Pressure, Hour, Day of Week, Month.',
+            renderData: (d) => {
+                const now = new Date();
+                return `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">EXTRACTED FEATURE VECTOR (X)</span>
+                        <div class="text-white fw-bold p-2" style="word-break: break-all; background: rgba(0,242,255,0.05); border: 1px dashed rgba(0,242,255,0.2); border-radius: 6px;">
+                            [${d.current.temperature}, ${d.current.humidity}, ${d.current.precipitation}, ${d.current.uv_index}, ${d.current.pressure}, ${now.getHours()}, ${now.getDay()}, ${now.getMonth()+1}]
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">PROCESSING METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> SCALER:</span> <span class="text-info fw-bold">weather_scaler.pkl</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> TOTAL FEATURES:</span> <span class="text-white fw-bold">8</span></div>
+                        </div>
+                    </div>
+                </div>
+            `}
+        },
+        {
+            title: '6. ML Model Engine',
+            icon: 'bi-boxes',
+            desc: 'The 8-feature vector is passed simultaneously to a supervised ensemble of four models (Random Forest, Gradient Boosting, KNN, Decision Tree). The best-performing model is loaded from weather_model.pkl.',
+            renderData: (d) => {
+                const m = d.current.models || {};
+                return `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">PARALLEL INFERENCE ACCURACY</span>
+                        <div class="data-grid">
+                            <div class="data-stat" style="border-left: 3px solid #8b5cf6;"><div class="text-secondary" style="font-size:0.6rem">RANDOM FOREST</div><div class="text-white fw-bold">${m.random_forest?.accuracy || '--'}</div></div>
+                            <div class="data-stat" style="border-left: 3px solid #f43f5e;"><div class="text-secondary" style="font-size:0.6rem">GRADIENT BOOSTING</div><div class="text-white fw-bold">${m.gradient_boosting?.accuracy || '--'}</div></div>
+                            <div class="data-stat" style="border-left: 3px solid #22c55e;"><div class="text-secondary" style="font-size:0.6rem">DECISION TREE</div><div class="text-white fw-bold">${m.decision_tree?.accuracy || '--'}</div></div>
+                            <div class="data-stat" style="border-left: 3px solid #14b8a6;"><div class="text-secondary" style="font-size:0.6rem">KNN</div><div class="text-white fw-bold">${m.knn?.accuracy || '--'}</div></div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">ENGINE METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> ARTIFACT:</span> <span class="text-info fw-bold">weather_model.pkl</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> ENCODER:</span> <span class="text-warning fw-bold">label_encoder.pkl</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> ALGORITHMS:</span> <span class="text-success fw-bold">4 Ensemble</span></div>
+                        </div>
+                    </div>
+                </div>
+            `}
+        },
+        {
+            title: '7. Prediction & Scoring',
+            icon: 'bi-bullseye',
+            desc: 'Outputs Sunny/Cloudy/Rainy with confidence %. Also hosts a separate 2-Hour Forecast Model (forecast_model.pkl) that predicts weather 2 hours ahead.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">CURRENT PREDICTION</span>
+                        <div class="d-flex align-items-center justify-content-between p-3 rounded mb-2" style="background: rgba(167,139,250,0.1); border: 1px solid rgba(167,139,250,0.2);">
+                            <div>
+                                <div class="text-info fw-bold" style="font-size: 1.1rem;">${d.current.best_model}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="text-success fw-bold" style="font-size: 1.1rem;">${d.current.confidence}%</div>
+                            </div>
+                        </div>
+                        <span class="label">2-HOUR FORECAST MODEL</span>
+                        <div class="p-2 rounded" style="background: rgba(0,242,255,0.05); border: 1px dashed rgba(0,242,255,0.2);">
+                            <span class="text-secondary small">Predicted +2h:</span> <span class="text-white fw-bold">${(d.current.prediction === 'Sunny' ? 'Cloudy' : 'Rainy')}</span>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">SCORING METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> CLASSES:</span> <span class="text-info fw-bold">Sunny/Cloudy/Rainy</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> FORECAST:</span> <span class="text-warning fw-bold">forecast_model.pkl</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            title: '8. Live Validation',
+            icon: 'bi-check2-circle',
+            desc: 'The local AI prediction is cross-referenced against the live OpenWeatherMap API for the current geolocation (lat/lon) to act as a ground-truth validation loop.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">GROUND TRUTH COMPARISON</span>
+                        <div class="d-flex align-items-center gap-4 mt-2 p-3 rounded" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);">
+                            <div>
+                                <div class="text-secondary" style="font-size:0.6rem">AI PREDICTED</div>
+                                <div class="text-white fw-bold" style="font-size: 1.1rem;">${(d.current.prediction || '').toUpperCase()}</div>
+                            </div>
+                            <div><i class="bi bi-arrow-left-right text-secondary" style="font-size: 1.5rem;"></i></div>
+                            <div class="text-end">
+                                <div class="text-secondary" style="font-size:0.6rem">API ACTUAL</div>
+                                <div class="text-white fw-bold" style="font-size: 1.1rem;">${(d.current.actual_weather || '').toUpperCase()}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">VALIDATION METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> PROVIDER:</span> <span class="text-info fw-bold">Open-Meteo API</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> LOCATION:</span> <span class="text-warning fw-bold">Geocoded City</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            title: '9. Flask Backend',
+            icon: 'bi-server',
+            desc: 'Flask backend application (app.py). Serves API endpoints, pushes sensor data, handles current prediction and 2-Hour forecast serving, and communicates with the Dashboard frontend.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">FLASK SERVICE STATUS</span>
+                        <div class="d-flex flex-column gap-2 p-3 rounded" style="background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08);">
+                            <div class="text-white small"><i class="bi bi-globe me-2 text-success"></i> GET /api/data -> 200 OK</div>
+                            <div class="text-white small"><i class="bi bi-robot me-2 text-info"></i> POST /api/predict -> 200 OK</div>
+                            <div class="text-white small"><i class="bi bi-cloud-sun me-2 text-warning"></i> GET /api/forecast -> 200 OK</div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">SERVER METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> FRAMEWORK:</span> <span class="text-info fw-bold">Flask (Python)</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> WORKERS:</span> <span class="text-warning fw-bold">Gunicorn / Waitress</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> CORS:</span> <span class="text-success fw-bold">Enabled</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        },
+        {
+            title: '10. Dashboard Output',
+            icon: 'bi-display',
+            desc: 'Processed telemetry, model accuracies, and final predictions are pushed to the frontend via a REST API endpoint (/data). Displays all historical charts and gauges seamlessly.',
+            renderData: (d) => `
+                <div class="row g-3">
+                    <div class="col-md-7">
+                        <span class="label">RENDER STATE</span>
+                        <div class="text-info fw-bold d-flex flex-column gap-2 p-3 rounded" style="background: rgba(0,242,255,0.05); border: 1px solid rgba(0,242,255,0.1);">
+                            <div><i class="bi bi-check-circle-fill text-success me-2"></i> Dashboard UI Synced</div>
+                            <div><i class="bi bi-check-circle-fill text-success me-2"></i> AI Insights & Forecast Updated</div>
+                            <div><i class="bi bi-check-circle-fill text-success me-2"></i> Canvas Charts Redrawn</div>
+                        </div>
+                    </div>
+                    <div class="col-md-5">
+                        <span class="label">CLIENT METADATA</span>
+                        <div class="data-stat" style="font-family:monospace; font-size: 0.75rem; color: #a78bfa;">
+                            <div class="mb-1"><span style="color:#64748b;">> STACK:</span> <span class="text-info fw-bold">HTML, CSS, JS</span></div>
+                            <div class="mb-1"><span style="color:#64748b;">> CHARTS:</span> <span class="text-success fw-bold">Chart.js</span></div>
+                        </div>
+                    </div>
+                </div>
+            `
+        }
+    ];
+
+    const nodeGroups = [
+        ['n-hw', 'n-s1', 'n-s2', 'n-s3', 'n-s4', 'n-s5'], // 0
+        ['n-ing'], // 1
+        ['n-val-layer'], // 2
+        ['n-smooth'], // 3
+        ['n-feat'], // 4
+        ['n-ml', 'n-m1', 'n-m2', 'n-m3', 'n-m4'], // 5
+        ['n-pred'], // 6
+        ['n-val'], // 7
+        ['n-flask'], // 8
+        ['n-dash'] // 9
+    ];
+
+    const pathGroups = [
+        ['p-hw-s1', 'p-hw-s2', 'p-hw-s3', 'p-hw-s4', 'p-hw-s5'], // 0
+        ['p-s1-ing', 'p-s2-ing', 'p-s3-ing', 'p-s4-ing', 'p-s5-ing'], // 1
+        ['p-ing-val-layer'], // 2
+        ['p-val-layer-smooth'], // 3
+        ['p-smooth-feat'], // 4
+        ['p-feat-ml', 'p-ml-m1', 'p-ml-m2', 'p-ml-m3', 'p-ml-m4'], // 5
+        ['p-m1-pred', 'p-m2-pred', 'p-m3-pred', 'p-m4-pred'], // 6
+        ['p-pred-val'], // 7
+        ['p-val-flask'], // 8
+        ['p-flask-dash'] // 9
+    ];
+
+    const pathConnections = {
+        'p-hw-s1': ['n-hw', 'n-s1'],
+        'p-hw-s2': ['n-hw', 'n-s2'],
+        'p-hw-s3': ['n-hw', 'n-s3'],
+        'p-hw-s4': ['n-hw', 'n-s4'],
+        'p-hw-s5': ['n-hw', 'n-s5'],
+        'p-s1-ing': ['n-s1', 'n-ing'],
+        'p-s2-ing': ['n-s2', 'n-ing'],
+        'p-s3-ing': ['n-s3', 'n-ing'],
+        'p-s4-ing': ['n-s4', 'n-ing'],
+        'p-s5-ing': ['n-s5', 'n-ing'],
+        'p-ing-val-layer': ['n-ing', 'n-val-layer'],
+        'p-val-layer-smooth': ['n-val-layer', 'n-smooth'],
+        'p-smooth-feat': ['n-smooth', 'n-feat'],
+        'p-feat-ml': ['n-feat', 'n-ml'],
+        'p-ml-m1': ['n-ml', 'n-m1'],
+        'p-ml-m2': ['n-ml', 'n-m2'],
+        'p-ml-m3': ['n-ml', 'n-m3'],
+        'p-ml-m4': ['n-ml', 'n-m4'],
+        'p-m1-pred': ['n-m1', 'n-pred'],
+        'p-m2-pred': ['n-m2', 'n-pred'],
+        'p-m3-pred': ['n-m3', 'n-pred'],
+        'p-m4-pred': ['n-m4', 'n-pred'],
+        'p-pred-val': ['n-pred', 'n-val'],
+        'p-val-flask': ['n-val', 'n-flask'],
+        'p-flask-dash': ['n-flask', 'n-dash']
+    };
+
+    let currentStep = 0;
+    let autoplayTimer = null;
+    let lastData = null;
+    
+    let animParticles = [];
+    let animFrame = null;
+    const pathOffsets = {
+        'p-hw-s1': 0.0, 'p-hw-s2': 0.2, 'p-hw-s3': 0.4, 'p-hw-s4': 0.6, 'p-hw-s5': 0.8,
+        'p-s1-ing': 0.0, 'p-s2-ing': 0.2, 'p-s3-ing': 0.4, 'p-s4-ing': 0.6, 'p-s5-ing': 0.8,
+        'p-ml-m1': 0.0, 'p-ml-m2': 0.25, 'p-ml-m3': 0.5, 'p-ml-m4': 0.75,
+        'p-m1-pred': 0.0, 'p-m2-pred': 0.25, 'p-m3-pred': 0.5, 'p-m4-pred': 0.75
+    };
+    
+    function animateFlow() {
+        animParticles.forEach(p => {
+            p.progress += 0.008; // Roughly equivalent to 2s duration
+            if (p.progress > 1) p.progress -= 1;
+            
+            const pathEl = document.getElementById(p.pathId);
+            if (pathEl && p.circle) {
+                const len = pathEl.getTotalLength();
+                if (len > 0) {
+                    const pt = pathEl.getPointAtLength(p.progress * len);
+                    p.circle.setAttribute('cx', pt.x);
+                    p.circle.setAttribute('cy', pt.y);
+                }
+            }
+        });
+        animFrame = requestAnimationFrame(animateFlow);
+    }
+
+    function updatePaths() {
+        const svg = document.getElementById('flow-svg');
+        const wrapper = document.querySelector('.flow-diagram-wrapper');
+        if (!svg || !wrapper) return;
+        const w = wrapper.clientWidth;
+        const h = wrapper.clientHeight;
+        
+        svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+        svg.removeAttribute('preserveAspectRatio');
+        
+        for (const [pathId, [sourceId, targetId]] of Object.entries(pathConnections)) {
+            const path = document.getElementById(pathId);
+            const source = document.getElementById(sourceId);
+            const target = document.getElementById(targetId);
+            if (!path || !source || !target) continue;
+            
+            // Start exact horizontal center of bottom edge
+            const sx = source.offsetLeft;
+            const sy = source.offsetTop + (source.offsetHeight / 2);
+            
+            // End exact horizontal center of top edge
+            const tx = target.offsetLeft;
+            const ty = target.offsetTop - (target.offsetHeight / 2);
+            
+            let midX = (sx + tx) / 2;
+            let midY = (sy + ty) / 2;
+            
+            if (sx === tx) {
+                path.setAttribute('d', `M${sx},${sy} L${tx},${ty}`);
+            } else {
+                const cy1 = sy + (ty - sy) * 0.5;
+                const cy2 = ty - (ty - sy) * 0.5;
+                path.setAttribute('d', `M${sx},${sy} C${sx},${cy1} ${tx},${cy2} ${tx},${ty}`);
+            }
+            
+            // Position midpoint dot
+            const dot = document.querySelector(`.midpoint-dot-${pathId}`);
+            if (dot) {
+                const len = path.getTotalLength();
+                if (len > 0) {
+                    const midPt = path.getPointAtLength(len * 0.5);
+                    dot.setAttribute('cx', midPt.x);
+                    dot.setAttribute('cy', midPt.y);
+                } else {
+                    dot.setAttribute('cx', midX);
+                    dot.setAttribute('cy', midY);
+                }
+            }
+        }
+    }
+
+    function initDiagram() {
+        // Generate step dots
+        const dots = document.getElementById('step-dots');
+        dots.innerHTML = PIPELINE_STAGES.map((_, i) => `<div class="step-dot" id="dot-${i}"></div>`).join('');
+        
+        // Generate SVG particles for paths
+        const svg = document.getElementById('flow-svg');
+        document.querySelectorAll('.flow-path').forEach(p => {
+            const id = p.getAttribute('id');
+            const colorClass = Array.from(p.classList).find(c => c.startsWith('color-')) || 'color-default';
+            
+            // Add static pulsing dot at midpoint
+            const midDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            midDot.setAttribute('r', '4');
+            midDot.setAttribute('class', `pulse-circle midpoint-dot-${id} ${colorClass}`);
+            
+            const animOp = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+            animOp.setAttribute('attributeName', 'opacity');
+            animOp.setAttribute('values', '1;0;0');
+            animOp.setAttribute('keyTimes', '0;0.3;1');
+            animOp.setAttribute('dur', '2s');
+            animOp.setAttribute('repeatCount', 'indefinite');
+            
+            const animR = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+            animR.setAttribute('attributeName', 'r');
+            animR.setAttribute('values', '4;16;16');
+            animR.setAttribute('keyTimes', '0;0.3;1');
+            animR.setAttribute('dur', '2s');
+            animR.setAttribute('repeatCount', 'indefinite');
+            
+            midDot.appendChild(animOp);
+            midDot.appendChild(animR);
+            svg.appendChild(midDot);
+            
+            // Animated moving particle using requestAnimationFrame instead of animateMotion
+            const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+            circle.setAttribute('r', '3');
+            circle.setAttribute('class', `flow-particle part-${id} ${colorClass}`);
+            
+            svg.appendChild(circle);
+            
+            animParticles.push({
+                circle: circle,
+                pathId: id,
+                progress: pathOffsets[id] || 0.0
+            });
+        });
+        
+        updatePaths();
+        if (animFrame) cancelAnimationFrame(animFrame);
+        animateFlow();
+        window.addEventListener('resize', updatePaths);
+    }
+
+    function updateStepUI() {
+        // Reset
+        document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.flow-path').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.flow-particle').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.pulse-circle').forEach(c => c.classList.remove('active'));
+        
+        // Activate current step
+        nodeGroups[currentStep].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('active');
+        });
+        
+        pathGroups[currentStep].forEach(id => {
+            const p = document.getElementById(id);
+            if (p) p.classList.add('active');
+            
+            const part = document.querySelector(`.part-${id}`);
+            if (part) part.classList.add('active');
+            
+            const dot = document.querySelector(`.midpoint-dot-${id}`);
+            if (dot) dot.classList.add('active');
+        });
+
+        // Handle dots
+        document.querySelectorAll('.step-dot').forEach((dot, i) => {
+            if (i === currentStep) dot.classList.add('active');
+            else dot.classList.remove('active');
+        });
+        
+        // Update content panel
+        const stage = PIPELINE_STAGES[currentStep];
+        document.getElementById('step-indicator-text').innerText = `STEP ${currentStep + 1} / ${PIPELINE_STAGES.length}`;
+        
+        let dataHtml = '<div class="text-secondary small">Waiting for data...</div>';
+        if (lastData) {
+            try {
+                dataHtml = stage.renderData(lastData);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        document.getElementById('step-content').innerHTML = `
+            <div class="step-title"><i class="bi ${stage.icon}"></i> ${stage.title}</div>
+            <div class="step-desc">${stage.desc}</div>
+            <div class="live-data-box" id="step-live-data">
+                ${dataHtml}
+            </div>
+        `;
+    }
+
+    function nextStep() {
+        currentStep = (currentStep + 1) % PIPELINE_STAGES.length;
+        updateStepUI();
+        resetAutoplay();
+    }
+
+    function prevStep() {
+        currentStep = (currentStep - 1 + PIPELINE_STAGES.length) % PIPELINE_STAGES.length;
+        updateStepUI();
+        resetAutoplay();
+    }
+
+    function goToStep(index) {
+        currentStep = index;
+        updateStepUI();
+        resetAutoplay();
+    }
+
+    function handleNodeClick(el, stepIndex, e) {
+        e.stopPropagation();
+        
+        // Toggle tooltip
+        const wasActive = el.classList.contains('tooltip-active');
+        document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('tooltip-active'));
+        if (!wasActive) el.classList.add('tooltip-active');
+        
+        // Go to step
+        if (stepIndex !== undefined) goToStep(stepIndex);
+    }
+    
+    // Hide tooltips on outside click
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.flow-node').forEach(n => n.classList.remove('tooltip-active'));
+    });
+
+    // Autoplay logic
+    document.getElementById('autoplay-toggle').addEventListener('change', (e) => {
+        if (e.target.checked) {
+            startAutoplay();
+        } else {
+            stopAutoplay();
+        }
+    });
+
+    function startAutoplay() {
+        if (autoplayTimer) clearInterval(autoplayTimer);
+        autoplayTimer = setInterval(() => {
+            currentStep = (currentStep + 1) % PIPELINE_STAGES.length;
+            updateStepUI();
+        }, 4000);
+    }
+
+    function stopAutoplay() {
+        if (autoplayTimer) {
+            clearInterval(autoplayTimer);
+            autoplayTimer = null;
+        }
+    }
+
+    function resetAutoplay() {
+        if (document.getElementById('autoplay-toggle').checked) {
+            startAutoplay();
+        }
+    }
+
+    async function fetchWorkflowData() {
+        try {
+            const r = await fetch('/data');
+            lastData = await r.json();
+            
+            const stage = PIPELINE_STAGES[currentStep];
+            const dataBox = document.getElementById('step-live-data');
+            if (dataBox) {
+                dataBox.innerHTML = stage.renderData(lastData);
+            }
+        } catch(e) {
+            console.error('Workflow data fetch error:', e);
+        }
+    }
+
+    // Init
+    document.addEventListener('DOMContentLoaded', () => {
+        initDiagram();
+        updateStepUI();
+        fetchWorkflowData();
+        setInterval(fetchWorkflowData, 2000);
+    });
+</script>
+{% endblock %}

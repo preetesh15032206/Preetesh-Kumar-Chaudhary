@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .live-hero {
+        background: rgba(255,255,255,0.02);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+        position: relative;
+    }
+    .info-section {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 12px;
+        padding: 1.5rem;
+        height: 100%;
+        transition: transform 0.2s, background 0.2s;
+    }
+    .info-section:hover {
+        background: rgba(255,255,255,0.04);
+        transform: translateY(-2px);
+    }
+    .section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #fff;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        letter-spacing: 0.05em;
+    }
+    .live-link-btn {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+        font-weight: 700;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        transition: all 0.2s;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+    .live-link-btn:hover {
+        background: linear-gradient(135deg, #059669 0%, #047857 100%);
+        color: white;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+    }
+    .number-badge {
+        background: rgba(255,255,255,0.1);
+        color: #a78bfa;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.8rem;
+        font-weight: 800;
+    }
+    .text-muted-custom {
+        color: #94a3b8;
+        font-size: 0.9rem;
+        line-height: 1.6;
+    }
+    .accent-word {
+        color: #a78bfa;
+        font-weight: 600;
+    }
+    .tag-chip {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #cbd5e1;
+        margin-right: 0.3rem;
+        margin-bottom: 0.3rem;
+    }
+</style>
+
+<div class="container-fluid px-0" style="max-width: 1100px; margin: 0 auto;">
+    
+    <!-- Header -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-4">
+        <div>
+            <h5 class="fw-bold m-0 text-white" style="letter-spacing: -0.01em; font-size: clamp(1.2rem, 3vw, 1.5rem);">
+                ENVIROCAST MONITOR
+            </h5>
+            <div class="text-secondary mt-1" style="font-size: 0.85rem; letter-spacing: 0.02em;">Live Hosted Project Documentation & Architecture</div>
+        </div>
+        <a href="https://envirocast-dashboard.onrender.com/" target="_blank" class="live-link-btn">
+            <i class="bi bi-box-arrow-up-right"></i> View Live Dashboard
+        </a>
+    </div>
+
+    <!-- Main Hero -->
+    <div class="live-hero p-4 mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h6 class="text-white fw-bold mb-3 d-flex align-items-center gap-2">
+                    <span class="number-badge">1</span> The Architecture & Flow
+                </h6>
+                <p class="text-muted-custom">
+                    This project is an end-to-end Machine Learning ETL (Extract, Transform, Load) pipeline and visualization dashboard. The pipeline operates in 3 distinct steps:
+                </p>
+                <ul class="text-muted-custom mb-0 ps-3">
+                    <li class="mb-2"><span class="text-white fw-bold">Ingest:</span> Pulls raw hourly weather data from an external weather API.</li>
+                    <li class="mb-2"><span class="text-white fw-bold">Transform & Train:</span> Cleans the data, engineers new mathematical features, and trains a Machine Learning model.</li>
+                    <li><span class="text-white fw-bold">Predict & Serve:</span> Generates next-hour temperature predictions and serves everything via a Node.js API to a React frontend.</li>
+                </ul>
+            </div>
+            <div class="col-md-4 text-center mt-4 mt-md-0">
+                <i class="bi bi-cpu" style="font-size: 5rem; color: rgba(167, 139, 250, 0.2);"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Database -->
+        <div class="col-12 col-lg-6">
+            <div class="info-section">
+                <h6 class="section-title">
+                    <span class="number-badge">3</span> Database (Where the data lives)
+                </h6>
+                <p class="text-muted-custom mb-3">
+                    The project uses <span class="text-white fw-bold">SQLite (pipeline.db)</span> as a lightweight, serverless relational database. It contains three main tables:
+                </p>
+                <ul class="text-muted-custom ps-3 mb-0">
+                    <li class="mb-2"><span class="accent-word">raw_weather:</span> Stores the raw historical weather data exactly as it comes from the Open-Meteo API.</li>
+                    <li class="mb-2"><span class="accent-word">predictions:</span> Stores the ML model's predicted temperatures alongside the actual observed temperatures so we can graph the difference (Actual vs. Forecast).</li>
+                    <li><span class="accent-word">eval_log:</span> Every time the model is retrained, it logs its accuracy metrics here (MAE, RMSE, and the number of training samples used). This powers the "Evaluation History" page to monitor model drift over time.</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- External API -->
+        <div class="col-12 col-lg-6">
+            <div class="info-section">
+                <h6 class="section-title">
+                    <span class="number-badge">2</span> External API (Where the data comes from)
+                </h6>
+                <div class="d-flex align-items-center gap-2 mb-3">
+                    <span class="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">Open-Meteo API</span>
+                    <a href="https://api.open-meteo.com/v1/forecast" target="_blank" class="text-info" style="font-size: 0.8rem;"><i class="bi bi-link-45deg"></i> Endpoint</a>
+                </div>
+                <p class="text-muted-custom mb-2">
+                    <span class="text-white fw-bold">API Key:</span> None required. Open-Meteo is a free, open-source weather API that does not require an API key for standard non-commercial usage.
+                </p>
+                <p class="text-muted-custom mb-0">
+                    <span class="text-white fw-bold">What it fetches:</span> It grabs the last 14 days of historical hourly weather data, plus a 1-day forecast. The variables collected are: Temperature, Relative Humidity, Wind Speed, Precipitation, and Apparent (Feels-Like) Temperature.
+                </p>
+            </div>
+        </div>
+
+        <!-- Machine Learning Pipeline -->
+        <div class="col-12">
+            <div class="info-section p-4">
+                <h6 class="section-title">
+                    <span class="number-badge">4</span> Machine Learning Pipeline (How the model works)
+                </h6>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6 mb-4 mb-md-0">
+                        <h6 class="text-info fw-bold mb-3" style="font-size: 0.85rem; letter-spacing: 1px;">A. FEATURE ENGINEERING</h6>
+                        <p class="text-muted-custom mb-3">Before the model can learn, the Python script (<code>scripts/model.py</code>) transforms the raw data into smarter variables:</p>
+                        <ul class="text-muted-custom ps-3">
+                            <li class="mb-2"><span class="text-white fw-bold">Time Encoding:</span> Converts the hour into Sine and Cosine waves. (This is a clever ML trick so the model understands that 23:00 and 00:00 are right next to each other, mathematically creating a continuous circle of time).</li>
+                            <li class="mb-2"><span class="text-white fw-bold">Lag Features:</span> Looks backward in time. It adds columns for what the temperature, humidity, and wind were exactly 1, 2, and 3 hours ago.</li>
+                            <li class="mb-2"><span class="text-white fw-bold">Rolling Averages:</span> Calculates the 3-hour and 6-hour moving average of the temperature to smooth out temporary spikes.</li>
+                            <li><span class="text-white fw-bold">The Target:</span> Takes the temperature and shifts it backwards by 1 hour. This teaches the model to look at current conditions and predict the next hour.</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h6 class="text-info fw-bold mb-3" style="font-size: 0.85rem; letter-spacing: 1px;">B. THE MODEL USED</h6>
+                        <div class="mb-3 p-3 rounded" style="background: rgba(167,139,250,0.05); border: 1px solid rgba(167,139,250,0.15);">
+                            <span class="text-white fw-bold">Algorithm:</span> Random Forest Regressor (via scikit-learn).
+                        </div>
+                        <p class="text-muted-custom mb-3">
+                            <span class="text-white fw-bold">How it works:</span> A Random Forest is an "ensemble" algorithm. It builds 100 different Decision Trees, each looking at a random subset of the weather data. When asking for a prediction, all 100 trees make a guess, and the forest averages them out to give a highly accurate, stable prediction.
+                        </p>
+                        <p class="text-muted-custom mb-0">
+                            <span class="text-white fw-bold">Evaluation metrics:</span><br>
+                            - <span class="accent-word">MAE (Mean Absolute Error):</span> On average, how many degrees off is the model?<br>
+                            - <span class="accent-word">RMSE (Root Mean Squared Error):</span> Similar to MAE, but heavily penalizes the model for being very wrong on a single prediction.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="col-12">
+            <div class="info-section">
+                <h6 class="section-title mb-4">
+                    <span class="number-badge">5</span> Tech Stack & Dependencies
+                </h6>
+                
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="p-3 rounded h-100" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                            <h6 class="text-white fw-bold mb-3 d-flex align-items-center gap-2">
+                                <i class="bi bi-filetype-py text-warning fs-5"></i> Python (The ML Backend)
+                            </h6>
+                            <div class="mb-2"><span class="tag-chip">requests</span> <span class="text-muted-custom" style="font-size:0.8rem">Fetch data from Open-Meteo API.</span></div>
+                            <div class="mb-2"><span class="tag-chip">pandas</span> <span class="text-muted-custom" style="font-size:0.8rem">Manipulate DataFrames and calculate rolling averages.</span></div>
+                            <div class="mb-2"><span class="tag-chip">scikit-learn</span> <span class="text-muted-custom" style="font-size:0.8rem">Build Random Forest, scale data, calculate MAE/RMSE.</span></div>
+                            <div class="mb-2"><span class="tag-chip">numpy</span> <span class="text-muted-custom" style="font-size:0.8rem">Mathematical operations like Sine/Cosine calculations.</span></div>
+                            <div class="mb-0"><span class="tag-chip">joblib</span> <span class="text-muted-custom" style="font-size:0.8rem">Serialize and save the trained model to disk (model.joblib).</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="p-3 rounded h-100" style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05);">
+                            <h6 class="text-white fw-bold mb-3 d-flex align-items-center gap-2">
+                                <i class="bi bi-filetype-jsx text-info fs-5"></i> Node.js / React (Dashboard & Server)
+                            </h6>
+                            <div class="mb-2">
+                                <span class="text-white fw-bold" style="font-size:0.85rem">Backend (server.ts):</span> 
+                                <span class="text-muted-custom" style="font-size:0.8rem">Uses Express.js to serve REST APIs (/api/data, /api/runs), and better-sqlite3 to safely read the SQLite database.</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-white fw-bold" style="font-size:0.85rem">Frontend (App.tsx):</span> 
+                                <span class="text-muted-custom" style="font-size:0.8rem">Built with React and styled heavily with Tailwind CSS.</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-white fw-bold" style="font-size:0.85rem">Charts:</span> 
+                                <span class="text-muted-custom" style="font-size:0.8rem">Uses Recharts for the interactive line and area charts.</span>
+                            </div>
+                            <div class="mb-0">
+                                <span class="text-white fw-bold" style="font-size:0.85rem">Icons:</span> 
+                                <span class="text-muted-custom" style="font-size:0.8rem">Lucide-React for crisp SVG iconography used in the sidebar and KPI cards.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+{% endblock %}

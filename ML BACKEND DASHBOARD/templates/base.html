@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Weather IoT Control</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        :root {
+            --primary: #00f2ff;
+            --secondary: #7000ff;
+            --bg-dark: #060818;
+            --card-bg: rgba(255, 255, 255, 0.08);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --text-main: #ffffff;
+            --text-muted: #cbd5e1;
+            --accent-temp: #fb923c;
+            --accent-hum: #38bdf8;
+            --accent-precip: #22d3ee;
+            --accent-uv: #facc15;
+            --accent-ai: #c084fc;
+        }
+
+        body {
+            background: radial-gradient(circle at top right, #0c0e2a, #060818);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ── Desktop sidebar ── */
+        .sidebar-desktop {
+            background: rgba(0,0,0,0.4);
+            border-right: 1px solid var(--glass-border);
+            z-index: 1000;
+            width: 260px;
+            min-height: 100vh;
+            position: fixed;
+            top: 0;
+            left: 0;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Mobile offcanvas sidebar ── */
+        .offcanvas-sidebar {
+            background: rgba(6, 8, 24, 0.98) !important;
+            border-right: 1px solid var(--glass-border) !important;
+        }
+
+        /* ── Main content ── */
+        .main-wrapper {
+            margin-left: 260px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .nav-link {
+            color: var(--text-muted) !important;
+            border-radius: 12px;
+            margin: 4px 12px;
+            padding: 11px 18px;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .nav-link:hover {
+            color: var(--primary) !important;
+            background: rgba(255,255,255,0.05);
+        }
+        .nav-link.active {
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            color: white !important;
+            box-shadow: 0 4px 20px rgba(0, 242, 255, 0.35);
+        }
+        .nav-link i { font-size: 1.1rem; width: 20px; text-align: center; }
+
+        .glass-card {
+            background: var(--card-bg);
+            backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            border-radius: 18px;
+            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+        }
+
+        .btn-premium {
+            background: linear-gradient(45deg, var(--primary), var(--secondary));
+            border: none;
+            color: white;
+            border-radius: 14px;
+            font-weight: 600;
+            padding: 10px 24px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .btn-premium:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 242, 255, 0.5);
+            color: white;
+        }
+
+        .status-badge {
+            padding: 5px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .status-idle     { background: rgba(255,255,255,0.1); color: var(--text-muted); border: 1px solid rgba(255,255,255,0.1); }
+        .status-running  { background: rgba(34,197,94,0.15); color: #4ade80; border: 1px solid rgba(34,197,94,0.3); animation: pulse 2s infinite; }
+        .status-completed{ background: rgba(59,130,246,0.15); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+
+        h5, h6 { color: var(--text-main); font-weight: 600; letter-spacing: 0.5px; }
+        .text-muted { color: var(--text-muted) !important; }
+
+        @keyframes pulse { 0% { opacity: 0.7; } 50% { opacity: 1; } 100% { opacity: 0.7; } }
+
+        /* ── Top mobile bar ── */
+        .mobile-topbar {
+            display: none;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(16px);
+            border-bottom: 1px solid var(--glass-border);
+            padding: 12px 16px;
+            position: sticky;
+            top: 0;
+            z-index: 999;
+        }
+
+        /* ── Search suggestions ── */
+        .suggestions-list {
+            position: absolute;
+            top: 40px;
+            left: 0;
+            right: 0;
+            background: rgba(2,12,27,0.98);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            max-height: 220px;
+            overflow: auto;
+            z-index: 1400;
+            box-shadow: 0 8px 30px rgba(2,12,27,0.6);
+        }
+        .suggestion-item {
+            padding: 8px 10px;
+            cursor: pointer;
+            color: var(--text-muted);
+            font-weight: 600;
+        }
+        .suggestion-item:hover, .suggestion-item.active { background: rgba(255,255,255,0.02); color: var(--text-main); }
+
+        /* ── Page header ── */
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .page-header .header-left  { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+        .page-header .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+        /* ── Header city search ── */
+        .header-search-top {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            position: relative;
+        }
+        .header-search-control {
+            position: relative;
+            width: clamp(220px, 26vw, 360px);
+            min-width: 0;
+        }
+        .header-search-control .input-group {
+            min-width: 0;
+        }
+        .header-search-control .form-control {
+            min-width: 0;
+        }
+        .header-search-button {
+            flex: 0 0 auto;
+        }
+        .header-search-result {
+            position: absolute;
+            top: calc(100% + 7px);
+            right: 0;
+            width: min(360px, 42vw);
+            min-width: 220px;
+            color: var(--text-muted);
+            font-size: 0.78rem;
+            font-weight: 700;
+            line-height: 1.35;
+            text-align: right;
+            white-space: normal;
+            overflow-wrap: anywhere;
+        }
+
+        /* ── Page content area ── */
+        .page-content {
+            padding: 16px 20px;
+            flex: 1;
+        }
+
+        /* ── Sidebar logo ── */
+        .sidebar-logo {
+            padding: 24px 20px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            margin-bottom: 8px;
+        }
+
+        /* ── Responsive breakpoints ── */
+        @media (max-width: 991.98px) {
+            .sidebar-desktop { display: none !important; }
+            .mobile-topbar   { display: flex !important; align-items: center; justify-content: space-between; }
+            .main-wrapper    { margin-left: 0; }
+            .page-header     { padding: 10px 14px; }
+            .page-content    { padding: 12px 14px; }
+            .mobile-subheader { display: none !important; }
+            .page-header .header-left { display: none; }
+            .page-header .header-right {
+                width: 100%;
+                justify-content: flex-end;
+            }
+            .header-search-top {
+                flex: 1 1 100%;
+                width: 100%;
+                order: -1;
+            }
+            .header-search-control {
+                width: 100%;
+            }
+            .header-search-result {
+                left: 0;
+                right: auto;
+                width: 100%;
+                text-align: left;
+            }
+        }
+
+        @media (max-width: 575.98px) {
+            .page-header     { padding: 8px 12px; }
+            .page-content    { padding: 10px 12px; }
+            .page-header .header-right .btn { font-size: 0.75rem; padding: 5px 10px; }
+            .page-header .header-right { gap: 8px; }
+            .header-search-top { gap: 6px; }
+            .header-search-result { font-size: 0.72rem; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════
+     DESKTOP SIDEBAR (hidden on mobile/tablet)
+═══════════════════════════════════════════ -->
+<nav class="sidebar-desktop d-none d-lg-flex flex-column">
+    <div class="sidebar-logo text-center">
+        <h4 class="fw-800 text-info m-0" style="letter-spacing:-0.5px; font-size:1.3rem;">
+            <i class="bi bi-wind me-1"></i>Practical Training Project
+        </h4>
+    </div>
+    <div class="nav flex-column mt-2 px-1 flex-grow-1">
+        <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/"><i class="bi bi-grid-fill"></i> Dashboard</a>
+        <a class="nav-link {% if request.path == '/pressure' %}active{% endif %}" href="/pressure"><i class="bi bi-speedometer2"></i> Atm. Pressure</a>
+        <a class="nav-link {% if request.path == '/temp_humidity' %}active{% endif %}" href="/temp_humidity"><i class="bi bi-thermometer-half"></i> Analytics</a>
+        <a class="nav-link {% if request.path == '/precipitation' %}active{% endif %}" href="/precipitation"><i class="bi bi-cloud-drizzle-fill"></i> Rainfall</a>
+        <a class="nav-link {% if request.path == '/uv_index' %}active{% endif %}" href="/uv_index"><i class="bi bi-sun-fill"></i> UV Radiation</a>
+        <a class="nav-link {% if request.path == '/prediction' %}active{% endif %}" href="/prediction"><i class="bi bi-robot"></i> AI Insights</a>
+        <a class="nav-link {% if request.path == '/model_analysis' %}active{% endif %}" href="/model_analysis"><i class="bi bi-bar-chart-line-fill"></i> Model Analysis</a>
+        <a class="nav-link {% if request.path == '/workflow' %}active{% endif %}" href="/workflow"><i class="bi bi-diagram-3-fill"></i> Workflow</a>
+        <a class="nav-link {% if request.path == '/live' %}active{% endif %}" href="/live"><i class="bi bi-broadcast"></i> Live</a>
+    </div>
+</nav>
+
+<!-- ═══════════════════════════════════════════
+     MOBILE TOP BAR
+═══════════════════════════════════════════ -->
+<div class="mobile-topbar">
+    <div class="d-flex align-items-center gap-2">
+        <button class="btn btn-sm btn-outline-info rounded-3 px-2 py-1" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar">
+            <i class="bi bi-list fs-5"></i>
+        </button>
+        <div>
+            <span class="fw-bold text-info" style="letter-spacing:-0.5px; font-size:1rem;"><i class="bi bi-wind me-1"></i>Practical Training Project</span>
+        </div>
+    </div>
+    <div class="d-flex align-items-center gap-2">
+        <div id="sys-status-badge-mobile" class="status-badge status-idle">Idle</div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MOBILE OFFCANVAS SIDEBAR
+═══════════════════════════════════════════ -->
+<div class="offcanvas offcanvas-start offcanvas-sidebar" tabindex="-1" id="mobileSidebar" style="width:280px;">
+    <div class="offcanvas-header border-bottom" style="border-color: rgba(255,255,255,0.08) !important;">
+        <div>
+            <h5 class="offcanvas-title fw-bold text-info m-0"><i class="bi bi-wind me-2"></i>Practical Training Project</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-0 pt-2">
+        <div class="nav flex-column px-1">
+            <a class="nav-link {% if request.path == '/' %}active{% endif %}" href="/" data-bs-dismiss="offcanvas"><i class="bi bi-grid-fill"></i> Dashboard</a>
+            <a class="nav-link {% if request.path == '/pressure' %}active{% endif %}" href="/pressure" data-bs-dismiss="offcanvas"><i class="bi bi-speedometer2"></i> Atm. Pressure</a>
+            <a class="nav-link {% if request.path == '/temp_humidity' %}active{% endif %}" href="/temp_humidity" data-bs-dismiss="offcanvas"><i class="bi bi-thermometer-half"></i> Analytics</a>
+            <a class="nav-link {% if request.path == '/precipitation' %}active{% endif %}" href="/precipitation" data-bs-dismiss="offcanvas"><i class="bi bi-cloud-drizzle-fill"></i> Rainfall</a>
+            <a class="nav-link {% if request.path == '/uv_index' %}active{% endif %}" href="/uv_index" data-bs-dismiss="offcanvas"><i class="bi bi-sun-fill"></i> UV Radiation</a>
+            <a class="nav-link {% if request.path == '/prediction' %}active{% endif %}" href="/prediction" data-bs-dismiss="offcanvas"><i class="bi bi-robot"></i> AI Insights</a>
+            <a class="nav-link {% if request.path == '/model_analysis' %}active{% endif %}" href="/model_analysis" data-bs-dismiss="offcanvas"><i class="bi bi-bar-chart-line-fill"></i> Model Analysis</a>
+            <a class="nav-link {% if request.path == '/workflow' %}active{% endif %}" href="/workflow" data-bs-dismiss="offcanvas"><i class="bi bi-diagram-3-fill"></i> Workflow</a>
+            <a class="nav-link {% if request.path == '/live' %}active{% endif %}" href="/live" data-bs-dismiss="offcanvas"><i class="bi bi-broadcast"></i> Live</a>
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════
+     MAIN CONTENT WRAPPER
+═══════════════════════════════════════════ -->
+<div class="main-wrapper">
+    <!-- Desktop page header -->
+    <header class="page-header">
+        <div class="header-left">
+            <div id="sys-status-badge" class="status-badge status-idle">Idle</div>
+            <div class="text-info small fw-bold"><i class="bi bi-broadcast me-1"></i>LIVE DATA STREAM</div>
+        </div>
+        <div class="header-right">
+            <!-- Search remains in the header flow beside the export and clock controls -->
+            <div id="header-search-top" class="header-search-top">
+                <div class="header-search-control">
+                    <div class="input-group">
+                        <input id="city-search-input-top" type="text" autocomplete="off" class="form-control form-control-sm engine-controls-input" placeholder="Search city or location" aria-label="Search city" oninput="onSearchInput(event)" onkeydown="onSearchKey(event)">
+                        <button id="city-search-btn-top" class="header-search-button btn btn-sm btn-premium" type="button" onclick="searchCity()">Search</button>
+                    </div>
+                    <div id="suggestions-top" class="suggestions-list" style="display:none;"></div>
+                </div>
+                <div id="search-result-top" class="header-search-result"></div>
+            </div>
+            <div class="d-flex align-items-center" style="gap:8px;">
+                <button class="btn btn-sm btn-outline-info rounded-pill px-3 py-2 fw-bold" onclick="exportCSV()">
+                    <i class="bi bi-download me-1"></i>EXPORT
+                </button>
+            </div>
+            <div class="d-flex align-items-center gap-1">
+                <i class="bi bi-clock-fill text-info"></i>
+                <span id="last-updated" class="text-white fw-bold small">--:--:--</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile sub-header -->
+    <div class="mobile-subheader d-flex d-lg-none align-items-center justify-content-between px-3 py-2" style="border-bottom:1px solid rgba(255,255,255,0.05); background:rgba(0,0,0,0.2);">
+        <div class="text-info small fw-bold"><i class="bi bi-broadcast me-1"></i>LIVE</div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn btn-sm btn-outline-info rounded-pill px-2 py-1 fw-bold" style="font-size:0.7rem;" onclick="exportCSV()">
+                <i class="bi bi-download me-1"></i>EXPORT
+            </button>
+            <div class="d-flex align-items-center gap-1">
+                <i class="bi bi-clock-fill text-info" style="font-size:0.75rem;"></i>
+                <span id="last-updated-mobile" class="text-white fw-bold" style="font-size:0.75rem;">--:--:--</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Page content -->
+    <div class="page-content">
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% block scripts %}{% endblock %}
+<script>
+    let isDarkMode = true;
+    // OpenWeather key injected from Flask (may be null)
+    const OPENWEATHER_KEY = "{{ openweather_key | default('', true) }}";
+
+    async function searchCity() {
+        const qElTop = document.getElementById('city-search-input-top');
+        const qEl    = qElTop || document.getElementById('city-search-input');
+        const outTop  = document.getElementById('search-result-top');
+        const out     = outTop || document.getElementById('search-result');
+        const q = (qEl && qEl.value || '').trim();
+        if (!q) { if (out) out.innerText = 'Enter a city name'; return; }
+        if (out) out.innerText = 'Searching...';
+        try {
+            const geo = await fetch(`/api/geo?q=${encodeURIComponent(q)}`);
+            const g = await geo.json();
+            if (!geo.ok || !Array.isArray(g)) {
+                if (out) out.innerText = g.error || 'Location search unavailable';
+                return;
+            }
+            if (g.length === 0) { if (out) out.innerText = 'No locations found'; return; }
+            if (g.length > 1) {
+                if (out) out.innerText = 'Select a location';
+                showSuggestions(g);
+                return;
+            }
+            const loc = g[0];
+            const lat = loc.lat, lon = loc.lon;
+            const wres = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
+            const w = await wres.json();
+            if (!wres.ok || w.error) {
+                if (out) out.innerText = w.error || 'Weather lookup unavailable';
+                return;
+            }
+            const desc = (w.weather && w.weather[0] && w.weather[0].description) ? w.weather[0].description : '--';
+            const temp = w.main ? Math.round(w.main.temp * 10) / 10 : '--';
+            const city = loc.name + (loc.state ? (', ' + loc.state) : '') + (loc.country ? (', ' + loc.country) : '');
+            if (out) out.innerText = `${city.toUpperCase()} · ${temp}°C · ${desc}`;
+
+            const mapped = desc.toLowerCase().includes('rain') ? 'Rainy'
+                : desc.toLowerCase().includes('cloud') || desc.toLowerCase().includes('overcast') || desc.toLowerCase().includes('mist') || desc.toLowerCase().includes('fog') ? 'Cloudy'
+                : 'Sunny';
+
+            const refresh = await fetch('/api/city_weather', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    city,
+                    lat,
+                    lon,
+                    raw_weather: desc,
+                    mapped_weather: mapped,
+                    source: 'OpenWeatherMap'
+                })
+            });
+            const payload = await refresh.json();
+            if (!refresh.ok) {
+                throw new Error(payload.error || 'city update failed');
+            }
+
+            const mainPred = document.getElementById('main-prediction');
+            const mainIcon = document.getElementById('main-icon');
+            if (mainPred) mainPred.innerText = mapped.toUpperCase();
+            if (mainIcon) {
+                mainIcon.innerText = mapped === 'Rainy' ? '🌧' : mapped === 'Cloudy' ? '☁️' : '☀️';
+            }
+
+            if (window.updateDashboard) window.updateDashboard();
+            if (window.fetchData) window.fetchData();
+
+        } catch (e) {
+            console.error(e);
+            if (out) out.innerText = 'Search failed';
+        }
+        setTimeout(() => { if (out && out.innerText === 'Searching...') out.innerText = ''; }, 3000);
+    }
+
+    // Autocomplete helpers
+    let suggestTimer = null;
+    let currentSuggestions = [];
+    function onSearchInput(e) {
+        const v = (e.target.value || '').trim();
+        const sugBox = document.getElementById('suggestions-top');
+        if (!v) { if (sugBox) sugBox.style.display = 'none'; return; }
+        if (suggestTimer) clearTimeout(suggestTimer);
+        suggestTimer = setTimeout(async () => {
+            // use server-side proxy; no client key required
+            try {
+                const url = `/api/geo?q=${encodeURIComponent(v)}`;
+                const r = await fetch(url);
+                const arr = await r.json();
+                if (!r.ok || !Array.isArray(arr)) {
+                    if (sugBox) sugBox.style.display = 'none';
+                    return;
+                }
+                showSuggestions(arr);
+            } catch (err) { console.error(err); }
+        }, 300);
+    }
+
+    function showSuggestions(list) {
+        currentSuggestions = list || [];
+        const box = document.getElementById('suggestions-top');
+        if (!box) return;
+        box.innerHTML = '';
+        if (!currentSuggestions.length) { box.style.display = 'none'; return; }
+        currentSuggestions.forEach((item, idx) => {
+            const el = document.createElement('div');
+            el.className = 'suggestion-item';
+            const label = item.name + (item.state ? (', ' + item.state) : '') + (item.country ? (', ' + item.country) : '');
+            el.innerText = label;
+            el.onclick = async () => {
+                document.getElementById('city-search-input-top').value = label;
+                box.style.display = 'none';
+                const q = label;
+                document.getElementById('search-result-top').innerText = 'Searching...';
+                try {
+                    const lat = item.lat, lon = item.lon;
+                    const wres = await fetch(`/api/weather?lat=${lat}&lon=${lon}`);
+                    const w = await wres.json();
+                    if (!wres.ok || w.error) throw new Error(w.error || 'weather lookup failed');
+                    const desc = (w.weather && w.weather[0] && w.weather[0].description) ? w.weather[0].description : '--';
+                    const temp = w.main ? Math.round(w.main.temp * 10) / 10 : '--';
+                    const mapped = desc.toLowerCase().includes('rain') ? 'Rainy'
+                        : desc.toLowerCase().includes('cloud') || desc.toLowerCase().includes('overcast') || desc.toLowerCase().includes('mist') || desc.toLowerCase().includes('fog') ? 'Cloudy'
+                        : 'Sunny';
+                    document.getElementById('search-result-top').innerText = `${q.toUpperCase()} · ${temp}°C · ${desc}`;
+                    const mainPred = document.getElementById('main-prediction');
+                    const mainIcon = document.getElementById('main-icon');
+                    if (mainPred) mainPred.innerText = mapped.toUpperCase();
+                    if (mainIcon) mainIcon.innerText = mapped === 'Rainy' ? '🌧' : mapped === 'Cloudy' ? '☁️' : '☀️';
+
+                    const refresh = await fetch('/api/city_weather', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ city: q, lat, lon, raw_weather: desc, mapped_weather: mapped, source: 'OpenWeatherMap' })
+                    });
+                    const payload = await refresh.json();
+                    if (!refresh.ok) throw new Error(payload.error || 'city update failed');
+                    if (window.updateDashboard) window.updateDashboard();
+                    if (window.fetchData) window.fetchData();
+                } catch (err) { console.error(err); document.getElementById('search-result-top').innerText = 'Search failed'; }
+            };
+            box.appendChild(el);
+        });
+        box.style.display = 'block';
+    }
+
+    function onSearchKey(e) {
+        // close suggestions on Escape
+        if (e.key === 'Escape') {
+            const box = document.getElementById('suggestions-top'); if (box) box.style.display = 'none';
+        }
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            searchCity();
+        }
+    }
+
+    async function fetchData() {
+        try {
+            const r = await fetch('/data');
+            const d = await r.json();
+            const badge  = document.getElementById('sys-status-badge');
+            const badgeM = document.getElementById('sys-status-badge-mobile');
+            const cls = 'status-badge status-' + d.current.status.toLowerCase();
+            if (badge)  { badge.innerText = d.current.status; badge.className = cls; }
+            if (badgeM) { badgeM.innerText = d.current.status; badgeM.className = cls; }
+            const ts = d.current.timestamp || '--:--:--';
+            const lu  = document.getElementById('last-updated');
+            const lum = document.getElementById('last-updated-mobile');
+            if (lu)  lu.innerText  = ts;
+            if (lum) lum.innerText = ts;
+            if (window.onUpdate) window.onUpdate(d);
+        } catch (e) { console.error(e); }
+    }
+
+    function exportCSV() {
+        fetch('/data').then(r => r.json()).then(d => {
+            let csv = 'Timestamp,Temperature,Humidity,Precipitation,UV_Index\n';
+            d.history.forEach(row => {
+                csv += `${row.timestamp},${row.temperature},${row.humidity},${row.precipitation},${row.uv_index}\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url  = window.URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'weather_data.csv');
+            a.click();
+        });
+    }
+
+    setInterval(fetchData, 2000);
+    fetchData();
+</script>
+</body>
+</html>

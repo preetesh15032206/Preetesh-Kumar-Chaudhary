@@ -1,0 +1,16 @@
+{
+  "name": "applet",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "BACKEND-BOT",
+    "ML BACKEND DASHBOARD"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace=\"ML BACKEND DASHBOARD\"",
+    "build": "echo \"No build required\""
+  },
+  "dependencies": {
+    "nunjucks": "^3.2.4"
+  }
+}

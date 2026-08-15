@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block content %}
+<style>
+    .rain-drop {
+        position: absolute;
+        width: 1px; height: 18px;
+        background: linear-gradient(to bottom, transparent, #00f2ff);
+        top: -20px;
+        animation: fall linear infinite;
+    }
+    @keyframes fall { to { transform: translateY(600px); } }
+    .precip-hero {
+        background: rgba(255,255,255,0.04);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(0,242,255,0.15);
+        border-radius: 16px;
+        overflow: hidden;
+        position: relative;
+    }
+    .p-meter-badge {
+        font-size: clamp(0.85rem, 2.5vw, 1.1rem);
+        font-weight: 700;
+        padding: 0.6rem 1.5rem;
+        border-radius: 9999px;
+        display: inline-block;
+        border: 1px solid rgba(0,242,255,0.25);
+        background: rgba(0,242,255,0.1);
+        color: #00f2ff;
+    }
+    .precip-value {
+        font-size: clamp(3rem, 12vw, 6rem);
+        font-weight: 900;
+        line-height: 1;
+    }
+    .glass-card {
+        background: rgba(255,255,255,0.02);
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 16px;
+    }
+</style>
+
+<div class="container-fluid px-0" style="max-width:1100px; margin:0 auto;">
+    
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+        <div>
+            <h5 class="fw-bold m-0" style="letter-spacing: -0.01em; font-size: clamp(0.9rem, 2.5vw, 1.15rem);">
+                PRECIPITATION & MOISTURE ANALYSIS
+            </h5>
+            <div class="text-secondary mt-0" style="font-size: 0.72rem;">HW-038 Advanced Rainfall Array</div>
+        </div>
+        <div class="status-badge-local status-live" style="background: rgba(0,242,255,0.12); color: #00f2ff; border: 1px solid rgba(0,242,255,0.25); padding: 0.35rem 0.9rem; border-radius: 9999px; font-weight: 700; font-size: 0.68rem; letter-spacing: 0.06em; text-transform: uppercase;">Live Feed</div>
+    </div>
+
+    <div class="row g-3">
+        <!-- Left: probability display -->
+        <div class="col-12 col-md-5">
+            <div class="precip-hero p-4 text-center h-100 d-flex flex-column justify-content-center" style="min-height:280px;">
+                <div id="rain-bg" class="position-absolute top-0 start-0 w-100 h-100" style="z-index:0; opacity:0.15;"></div>
+                <div style="position:relative; z-index:1;">
+                    <h6 class="text-info fw-bold mb-3" style="letter-spacing:3px; font-size:0.72rem;">RAINFALL INTENSITY</h6>
+                    <div class="precip-value text-white mb-3">
+                        <span id="p-val">--</span><span class="h3 ms-1 text-secondary">%</span>
+                    </div>
+                    <div id="p-meter" class="p-meter-badge mb-3">DRY</div>
+                    <p class="text-info small fw-bold opacity-75 mb-0" style="font-size:0.68rem; letter-spacing:1px;">SENSOR ARRAY ANALYSIS ACTIVE</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: history chart -->
+        <div class="col-12 col-md-7">
+            <div class="glass-card p-3 p-md-4 h-100">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+                    <h6 class="text-info fw-bold m-0" style="letter-spacing:1px; font-size:0.72rem;">PRECIPITATION TIMELINE</h6>
+                    <span class="badge rounded-pill bg-info bg-opacity-10 text-info border border-info border-opacity-25 px-3 py-1" style="font-size:0.65rem;">LIVE STREAM</span>
+                </div>
+                <div style="height:min(220px, 40vw);">
+                    <canvas id="pHistory"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Row: Additional details -->
+        <div class="col-12 mt-2">
+            <div class="row g-3">
+                <!-- Interpretation -->
+                <div class="col-12 col-md-6">
+                    <div class="glass-card p-4 h-100" style="background: rgba(0,242,255,0.03); border: 1px solid rgba(0,242,255,0.15);">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <i class="bi bi-lightbulb fs-5 text-info"></i>
+                            <h6 class="m-0 fw-bold text-info" style="letter-spacing: 1px; font-size:0.75rem;">WEATHER INTERPRETATION</h6>
+                        </div>
+                        <div class="d-flex align-items-start gap-3">
+                            <div id="rain-interp-icon" style="font-size: 2.5rem; line-height: 1;">☁️</div>
+                            <div>
+                                <div id="rain-interp-title" class="fw-bold text-white mb-1" style="font-size: 1.1rem;">Conditions Dry</div>
+                                <p id="rain-interp-desc" class="text-secondary m-0" style="font-size: 0.85rem; line-height: 1.5;">
+                                    No precipitation detected. The sensor surface is completely dry. Ideal conditions for outdoor activities.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Sensor Diagnostic -->
+                <div class="col-12 col-md-6">
+                    <div class="glass-card p-4 h-100" style="background: rgba(255,255,255,0.02);">
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <i class="bi bi-cpu fs-5 text-secondary"></i>
+                            <h6 class="m-0 fw-bold text-secondary" style="letter-spacing: 1px; font-size:0.75rem;">HARDWARE DIAGNOSTICS</h6>
+                        </div>
+                        <div class="d-flex flex-column gap-2">
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background: rgba(0,0,0,0.2);">
+                                <span class="text-secondary" style="font-size: 0.8rem;">Sensor Module</span>
+                                <span class="text-info fw-bold" style="font-size: 0.8rem;">HW-038 / HW-103</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background: rgba(0,0,0,0.2);">
+                                <span class="text-secondary" style="font-size: 0.8rem;">Analog Output (A0)</span>
+                                <span id="diag-ao" class="text-white fw-bold" style="font-size: 0.8rem;">--</span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center p-2 rounded" style="background: rgba(0,0,0,0.2);">
+                                <span class="text-secondary" style="font-size: 0.8rem;">Heater Status</span>
+                                <span class="text-success fw-bold" style="font-size: 0.8rem;">AUTO-EVAP ACTIVE</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let pChart;
+    document.addEventListener('DOMContentLoaded', () => {
+        const ctx = document.getElementById('pHistory').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 350);
+        gradient.addColorStop(0, 'rgba(0,242,255,0.4)');
+        gradient.addColorStop(1, 'rgba(0,242,255,0.05)');
+
+        pChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    data: [], backgroundColor: gradient,
+                    borderColor: '#00f2ff', borderWidth: 1,
+                    borderRadius: 5, barPercentage: 0.6
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8', font: { size: 10 } } },
+                    x: { grid: { display: false }, ticks: { color: '#94a3b8', font: { size: 10 }, maxRotation: 0 } }
+                },
+                plugins: { legend: { display: false } }
+            }
+        });
+
+        const bg = document.getElementById('rain-bg');
+        for (let i = 0; i < 40; i++) {
+            let drop = document.createElement('div');
+            drop.className = 'rain-drop';
+            drop.style.left = Math.random() * 100 + '%';
+            drop.style.animationDelay = Math.random() * 2 + 's';
+            drop.style.animationDuration = (Math.random() * 0.5 + 0.3) + 's';
+            bg.appendChild(drop);
+        }
+    });
+
+    window.onUpdate = function(d) {
+        if (!d.current.monitoring.active) return;
+        
+        document.getElementById('p-val').innerText = Math.round(d.current.precipitation);
+        
+        let m = 'DRY', color = 'rgba(0,242,255,0.1)';
+        if (d.current.precipitation > 60) { 
+            m = 'HEAVY RAIN'; color = 'rgba(239,68,68,0.2)'; 
+            document.getElementById('rain-interp-icon').innerText = '⛈️';
+            document.getElementById('rain-interp-title').innerText = 'Heavy Rainfall';
+            document.getElementById('rain-interp-title').className = 'fw-bold text-danger mb-1';
+            document.getElementById('rain-interp-desc').innerText = 'Significant precipitation detected. Surface saturation is high. Risk of flooding.';
+        }
+        else if (d.current.precipitation > 20) { 
+            m = 'MODERATE'; color = 'rgba(59,130,246,0.2)'; 
+            document.getElementById('rain-interp-icon').innerText = '🌧️';
+            document.getElementById('rain-interp-title').innerText = 'Moderate Rain';
+            document.getElementById('rain-interp-title').className = 'fw-bold text-primary mb-1';
+            document.getElementById('rain-interp-desc').innerText = 'Steady rainfall detected. Sensor surface is partially saturated.';
+        }
+        else if (d.current.precipitation > 0) {
+            m = 'DRIZZLE'; color = 'rgba(56,189,248,0.2)';
+            document.getElementById('rain-interp-icon').innerText = '🌦️';
+            document.getElementById('rain-interp-title').innerText = 'Light Drizzle';
+            document.getElementById('rain-interp-title').className = 'fw-bold text-info mb-1';
+            document.getElementById('rain-interp-desc').innerText = 'Minor droplets detected. Trace amounts of precipitation.';
+        }
+        else {
+            document.getElementById('rain-interp-icon').innerText = '☁️';
+            document.getElementById('rain-interp-title').innerText = 'Conditions Dry';
+            document.getElementById('rain-interp-title').className = 'fw-bold text-white mb-1';
+            document.getElementById('rain-interp-desc').innerText = 'No precipitation detected. The sensor surface is completely dry. Ideal conditions for outdoor activities.';
+        }
+        
+        const meter = document.getElementById('p-meter');
+        meter.innerText = m;
+        meter.style.background = color;
+        
+        let rawAnalog = Math.round(1023 - (d.current.precipitation / 100) * 1023);
+        document.getElementById('diag-ao').innerText = rawAnalog + ' (10-bit ADC)';
+
+        if (d.history.length > 0) {
+            pChart.data.labels = d.history.map(x => x.timestamp);
+            pChart.data.datasets[0].data = d.history.map(x => x.precipitation);
+            pChart.update('none');
+        }
+    };
+</script>
+{% endblock %}

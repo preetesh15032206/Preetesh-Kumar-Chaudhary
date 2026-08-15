@@ -1,0 +1,34 @@
+{
+  "decision_tree": {
+    "current_accuracy": 0.9283,
+    "current_accuracy_pct": "92.8%",
+    "current_cv_mean": 0.9237,
+    "forecast_accuracy": 0.8884,
+    "forecast_accuracy_pct": "88.8%",
+    "forecast_cv_mean": 0.8519
+  },
+  "gradient_boosting": {
+    "current_accuracy": 0.9522,
+    "current_accuracy_pct": "95.2%",
+    "current_cv_mean": 0.9437,
+    "forecast_accuracy": 0.9024,
+    "forecast_accuracy_pct": "90.2%",
+    "forecast_cv_mean": 0.8908
+  },
+  "knn": {
+    "current_accuracy": 0.9502,
+    "current_accuracy_pct": "95.0%",
+    "current_cv_mean": 0.9402,
+    "forecast_accuracy": 0.8845,
+    "forecast_accuracy_pct": "88.4%",
+    "forecast_cv_mean": 0.8853
+  },
+  "random_forest": {
+    "current_accuracy": 0.9263,
+    "current_accuracy_pct": "92.6%",
+    "current_cv_mean": 0.9138,
+    "forecast_accuracy": 0.8825,
+    "forecast_accuracy_pct": "88.2%",
+    "forecast_cv_mean": 0.8659
+  }
+}
