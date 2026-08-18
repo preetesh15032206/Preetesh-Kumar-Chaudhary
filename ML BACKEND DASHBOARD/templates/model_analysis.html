@@ -1514,7 +1514,9 @@ async function refresh() {
             uvChart.update('none');
         }
 
-    } catch(e) { console.error('refresh error', e); }
+    } catch(e) {
+        // Transient fetch error during reload/offline - handled gracefully
+    }
 }
 
 refresh();

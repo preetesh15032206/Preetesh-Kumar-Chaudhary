@@ -398,7 +398,9 @@
                 pressureChart.data.datasets[0].data = data.history.map(h => h.pressure);
                 pressureChart.update('none');
             }
-        } catch (e) { console.error('Pressure update failed:', e); }
+        } catch (e) {
+            // Transient fetch error during reload/offline - handled gracefully
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

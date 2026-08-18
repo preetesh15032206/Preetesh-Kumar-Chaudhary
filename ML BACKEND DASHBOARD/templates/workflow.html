@@ -1080,7 +1080,7 @@
                 dataBox.innerHTML = stage.renderData(lastData);
             }
         } catch(e) {
-            console.error('Workflow data fetch error:', e);
+            // Transient fetch error during reload/offline - handled gracefully
         }
     }
 

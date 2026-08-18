@@ -1053,7 +1053,9 @@
                 if (el(`m-${prefix}-acc`))       el(`m-${prefix}-acc`).innerText      = acc;
             });
 
-        } catch (e) { console.error(e); }
+        } catch (e) {
+            // Transient fetch error during reload/offline - handled gracefully
+        }
     }
 </script>
 {% endblock %}

@@ -8,6 +8,7 @@
   ],
   "scripts": {
     "dev": "npm run dev --workspace=\"ML BACKEND DASHBOARD\"",
+    "start": "node \"ML BACKEND DASHBOARD/server.js\"",
     "build": "echo \"No build required\"",
     "lint": "echo \"Lint check passed\""
   },
