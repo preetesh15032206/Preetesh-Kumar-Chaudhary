@@ -1,0 +1,6 @@
+{
+  "name": "EnviroCast Monitor & ML Dashboard",
+  "description": "Real-time IoT weather station and machine learning dashboard with predictive analytics, data pipeline workflows, and live API telemetry.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
